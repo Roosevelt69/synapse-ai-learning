@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '@/constants/colors';
 import { Theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Lesson } from '@/data/courses';
 
 interface Props {
@@ -14,6 +14,9 @@ interface Props {
 }
 
 export default function LessonItem({ lesson, index, isComplete, isLocked, onPress }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+
   const handlePress = () => {
     if (isLocked) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -29,7 +32,11 @@ export default function LessonItem({ lesson, index, isComplete, isLocked, onPres
       activeOpacity={isLocked ? 1 : 0.8}
       style={[styles.container, isLocked && styles.locked]}
     >
-      <View style={[styles.numberBadge, isComplete && styles.completeBadge, isLocked && styles.lockedBadge]}>
+      <View style={[
+        styles.numberBadge,
+        isComplete && styles.completeBadge,
+        isLocked && styles.lockedBadge,
+      ]}>
         {isComplete ? (
           <Text style={styles.checkIcon}>✓</Text>
         ) : (
@@ -58,84 +65,71 @@ export default function LessonItem({ lesson, index, isComplete, isLocked, onPres
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: Theme.radius.lg,
-    padding: Theme.spacing.md,
-    gap: Theme.spacing.md,
-    marginBottom: Theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  locked: {
-    opacity: 0.5,
-  },
-  numberBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: Theme.radius.full,
-    backgroundColor: Colors.primary + '22',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.primary + '44',
-  },
-  completeBadge: {
-    backgroundColor: Colors.success + '22',
-    borderColor: Colors.success + '66',
-  },
-  lockedBadge: {
-    backgroundColor: Colors.surfaceLight,
-    borderColor: Colors.border,
-  },
-  number: {
-    color: Colors.primary,
-    fontSize: Theme.font.md,
-    fontWeight: Theme.weight.bold,
-  },
-  checkIcon: {
-    color: Colors.success,
-    fontSize: Theme.font.md,
-    fontWeight: Theme.weight.bold,
-  },
-  lockedText: {
-    color: Colors.textMuted,
-  },
-  content: {
-    flex: 1,
-    gap: 4,
-  },
-  title: {
-    color: Colors.text,
-    fontSize: Theme.font.md,
-    fontWeight: Theme.weight.semibold,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  meta: {
-    color: Colors.textMuted,
-    fontSize: Theme.font.xs,
-  },
-  dot: {
-    color: Colors.textMuted,
-    fontSize: Theme.font.xs,
-  },
-  arrow: {
-    color: Colors.primary,
-    fontSize: 22,
-    fontWeight: Theme.weight.bold,
-  },
-  doneArrow: {
-    color: Colors.textMuted,
-    fontSize: 18,
-  },
-  lockIcon: {
-    fontSize: 16,
-  },
-});
+function getStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: Theme.radius.lg,
+      padding: Theme.spacing.md,
+      gap: Theme.spacing.md,
+      marginBottom: Theme.spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    locked: { opacity: 0.45 },
+    numberBadge: {
+      width: 36,
+      height: 36,
+      borderRadius: Theme.radius.full,
+      backgroundColor: colors.primary + '22',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: colors.primary + '44',
+    },
+    completeBadge: {
+      backgroundColor: colors.success + '22',
+      borderColor: colors.success + '66',
+    },
+    lockedBadge: {
+      backgroundColor: colors.surfaceLight,
+      borderColor: colors.border,
+    },
+    number: {
+      color: colors.primary,
+      fontSize: Theme.font.md,
+      fontWeight: '700',
+    },
+    checkIcon: {
+      color: colors.success,
+      fontSize: Theme.font.md,
+      fontWeight: '700',
+    },
+    lockedText: { color: colors.textMuted },
+    content: { flex: 1, gap: 4 },
+    title: {
+      color: colors.text,
+      fontSize: Theme.font.md,
+      fontWeight: '600',
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+    },
+    meta: { color: colors.textMuted, fontSize: Theme.font.xs },
+    dot: { color: colors.textMuted, fontSize: Theme.font.xs },
+    arrow: {
+      color: colors.primary,
+      fontSize: 22,
+      fontWeight: '700',
+    },
+    doneArrow: {
+      color: colors.textMuted,
+      fontSize: 18,
+    },
+    lockIcon: { fontSize: 16 },
+  });
+}

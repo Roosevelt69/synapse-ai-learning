@@ -1,17 +1,25 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// expo-notifications is not supported on web
+const isNative = Platform.OS !== 'web';
+
+let Notifications: typeof import('expo-notifications') | null = null;
+if (isNative) {
+  Notifications = require('expo-notifications');
+  Notifications!.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 export async function requestNotificationPermission(): Promise<boolean> {
+  if (!isNative || !Notifications) return false;
+
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'Streak Reminders',
@@ -28,6 +36,8 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 export async function scheduleDailyReminder(streakCount: number): Promise<void> {
+  if (!isNative || !Notifications) return;
+
   await Notifications.cancelAllScheduledNotificationsAsync();
 
   const messages = [
@@ -53,6 +63,8 @@ export async function scheduleDailyReminder(streakCount: number): Promise<void> 
 }
 
 export async function sendStreakAchievedNotification(streak: number): Promise<void> {
+  if (!isNative || !Notifications) return;
+
   const milestones: Record<number, string> = {
     3: '3 days straight! You\'re building a habit. 🔥',
     7: '7-day streak! One full week of learning. 🏆',

@@ -3,6 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export interface UserProgress {
   name: string;
   totalXP: number;
+  xpBalance: number;
+  streakFreezes: number;
   streak: number;
   longestStreak: number;
   lastActivityDate: string | null;
@@ -20,6 +22,8 @@ const KEYS = {
 export const DEFAULT_PROGRESS: UserProgress = {
   name: 'Learner',
   totalXP: 0,
+  xpBalance: 0,
+  streakFreezes: 0,
   streak: 0,
   longestStreak: 0,
   lastActivityDate: null,
@@ -34,7 +38,22 @@ export async function loadProgress(): Promise<UserProgress> {
   try {
     const raw = await AsyncStorage.getItem(KEYS.PROGRESS);
     if (!raw) return { ...DEFAULT_PROGRESS };
-    return { ...DEFAULT_PROGRESS, ...JSON.parse(raw) };
+    const progress: UserProgress = { ...DEFAULT_PROGRESS, ...JSON.parse(raw) };
+
+    // Auto-apply a streak freeze if user missed exactly 1 day and has one available
+    const dayBeforeYesterday = new Date();
+    dayBeforeYesterday.setDate(dayBeforeYesterday.getDate() - 2);
+    const dbStr = dayBeforeYesterday.toISOString().split('T')[0];
+
+    if (progress.lastActivityDate === dbStr && (progress.streakFreezes ?? 0) > 0) {
+      progress.streakFreezes -= 1;
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      progress.lastActivityDate = yesterday.toISOString().split('T')[0];
+      await saveProgress(progress);
+    }
+
+    return progress;
   } catch {
     return { ...DEFAULT_PROGRESS };
   }
@@ -57,6 +76,7 @@ export async function completeLesson(
   if (!progress.completedLessons.includes(lessonId)) {
     progress.completedLessons = [...progress.completedLessons, lessonId];
     progress.totalXP += xpEarned;
+    progress.xpBalance = (progress.xpBalance ?? 0) + xpEarned;
   }
 
   progress.quizScores[lessonId] = Math.max(progress.quizScores[lessonId] ?? 0, quizScore);
@@ -83,6 +103,43 @@ export async function completeLesson(
     progress.lastActivityDate = today;
   }
 
+  await saveProgress(progress);
+  return progress;
+}
+
+export async function awardPracticeXP(xpEarned: number): Promise<UserProgress> {
+  const progress = await loadProgress();
+  const today = new Date().toISOString().split('T')[0];
+
+  progress.totalXP += xpEarned;
+  progress.xpBalance = (progress.xpBalance ?? 0) + xpEarned;
+
+  const last = progress.lastActivityDate;
+  if (last !== today) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toISOString().split('T')[0];
+
+    if (last === yStr) {
+      progress.streak += 1;
+    } else if (last === null) {
+      progress.streak = 1;
+    } else {
+      progress.streak = 1;
+    }
+    progress.longestStreak = Math.max(progress.longestStreak, progress.streak);
+    progress.lastActivityDate = today;
+  }
+
+  await saveProgress(progress);
+  return progress;
+}
+
+export async function buyStreakFreeze(cost: number): Promise<UserProgress | null> {
+  const progress = await loadProgress();
+  if ((progress.xpBalance ?? 0) < cost) return null;
+  progress.xpBalance = (progress.xpBalance ?? 0) - cost;
+  progress.streakFreezes = (progress.streakFreezes ?? 0) + 1;
   await saveProgress(progress);
   return progress;
 }

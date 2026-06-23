@@ -5,10 +5,24 @@ import {
   completeLesson,
   checkStreakStatus,
   getLevelFromXP,
+  awardPracticeXP,
+  buyStreakFreeze as storeBuyFreeze,
   UserProgress,
   DEFAULT_PROGRESS,
 } from '@/utils/storage';
+import {
+  pushProgressUpdate,
+  pushLessonCompletion,
+  pushQuizScore,
+  pushOnboarding,
+} from '@/utils/sync';
+import { supabase } from '@/lib/supabase';
 import { COURSES } from '@/data/courses';
+
+async function getCurrentUserId(): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id ?? null;
+}
 
 export function useProgress() {
   const [progress, setProgress] = useState<UserProgress>(DEFAULT_PROGRESS);
@@ -28,15 +42,45 @@ export function useProgress() {
   }, []);
 
   const finishLesson = useCallback(
-    async (lessonId: string, courseId: string, xpEarned: number, quizScore: number) => {
+    async (lessonId: string, courseId: string, xpEarned: number, score: number, total: number) => {
       const course = COURSES.find((c) => c.id === courseId);
       const allIds = course?.lessons.map((l) => l.id) ?? [];
+      const quizScore = total > 0 ? Math.round((score / total) * 100) : 0;
       const updated = await completeLesson(lessonId, courseId, xpEarned, quizScore, allIds);
       setProgress(updated);
+
+      getCurrentUserId().then((userId) => {
+        if (!userId) return;
+        Promise.all([
+          pushProgressUpdate(userId, updated),
+          pushLessonCompletion(userId, lessonId, courseId),
+          pushQuizScore(userId, lessonId, courseId, score, total, xpEarned),
+        ]).catch(() => {});
+      });
+
       return updated;
     },
     []
   );
+
+  const awardPractice = useCallback(async (xp: number) => {
+    const updated = await awardPracticeXP(xp);
+    setProgress(updated);
+
+    getCurrentUserId().then((userId) => {
+      if (!userId) return;
+      pushProgressUpdate(userId, updated).catch(() => {});
+    });
+
+    return updated;
+  }, []);
+
+  const buyFreeze = useCallback(async (cost: number): Promise<boolean> => {
+    const updated = await storeBuyFreeze(cost);
+    if (!updated) return false;
+    setProgress(updated);
+    return true;
+  }, []);
 
   const updateName = useCallback(async (name: string) => {
     const p = await loadProgress();
@@ -53,6 +97,11 @@ export function useProgress() {
       p.notificationsEnabled = notificationsEnabled;
       await saveProgress(p);
       setProgress(p);
+
+      const userId = await getCurrentUserId();
+      if (userId) {
+        await pushOnboarding(userId, name).catch(() => {});
+      }
     },
     []
   );
@@ -85,6 +134,8 @@ export function useProgress() {
     loading,
     refresh,
     finishLesson,
+    awardPractice,
+    buyFreeze,
     updateName,
     completeOnboarding,
     isLessonComplete,

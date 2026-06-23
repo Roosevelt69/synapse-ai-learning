@@ -6,8 +6,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { Colors, Gradients } from '@/constants/colors';
+import { Gradients } from '@/constants/colors';
 import { Theme } from '@/constants/theme';
+import { useTheme } from '@/contexts/ThemeContext';
 import { getCourseById, getLessonById } from '@/data/courses';
 import { useProgress } from '@/hooks/useProgress';
 import { sendStreakAchievedNotification } from '@/utils/notifications';
@@ -90,6 +91,12 @@ function Confetti({ show }: { show: boolean }) {
   );
 }
 
+const subStyles = StyleSheet.create({
+  starsRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  star: { fontSize: 36 },
+  starEmpty: { opacity: 0.3 },
+});
+
 function StarItem({ index, earned }: { index: number; earned: boolean }) {
   const scale = useRef(new Animated.Value(0)).current;
 
@@ -101,7 +108,7 @@ function StarItem({ index, earned }: { index: number; earned: boolean }) {
 
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
-      <Text style={[styles.star, !earned && styles.starEmpty]}>⭐</Text>
+      <Text style={[subStyles.star, !earned && subStyles.starEmpty]}>⭐</Text>
     </Animated.View>
   );
 }
@@ -110,7 +117,7 @@ function StarDisplay({ score, total }: { score: number; total: number }) {
   const pct = score / total;
   const stars = pct >= 0.8 ? 3 : pct >= 0.6 ? 2 : 1;
   return (
-    <View style={styles.starsRow}>
+    <View style={subStyles.starsRow}>
       {[1, 2, 3].map((s) => (
         <StarItem key={s} index={s} earned={s <= stars} />
       ))}
@@ -124,6 +131,8 @@ export default function ResultsScreen() {
   }>();
   const router = useRouter();
   const { finishLesson, progress } = useProgress();
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   const score = parseInt(params.score ?? '0', 10);
   const total = parseInt(params.total ?? '1', 10);
@@ -145,7 +154,7 @@ export default function ResultsScreen() {
     if (hasFinished.current) return;
     hasFinished.current = true;
 
-    finishLesson(lessonId, courseId, xpEarned, Math.round(pct * 100)).then((updated) => {
+    finishLesson(lessonId, courseId, xpEarned, score, total).then((updated) => {
       if (updated.streak >= 3) {
         sendStreakAchievedNotification(updated.streak);
       }
@@ -179,7 +188,7 @@ export default function ResultsScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={[Colors.background, Colors.surface]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[colors.background, colors.surface]} style={StyleSheet.absoluteFill} />
 
       <Confetti show={passed && pct >= 0.75} />
 
@@ -204,17 +213,17 @@ export default function ResultsScreen() {
             <View style={styles.rewardRow}>
               <View style={styles.rewardCard}>
                 <Text style={styles.rewardEmoji}>⚡</Text>
-                <Text style={[styles.rewardValue, { color: Colors.xp }]}>+{xpEarned}</Text>
+                <Text style={[styles.rewardValue, { color: colors.xp }]}>+{xpEarned}</Text>
                 <Text style={styles.rewardLabel}>XP Earned</Text>
               </View>
               <View style={styles.rewardCard}>
                 <Text style={styles.rewardEmoji}>🔥</Text>
-                <Text style={[styles.rewardValue, { color: Colors.streak }]}>{progress.streak}</Text>
+                <Text style={[styles.rewardValue, { color: colors.streak }]}>{progress.streak}</Text>
                 <Text style={styles.rewardLabel}>Day Streak</Text>
               </View>
               <View style={styles.rewardCard}>
                 <Text style={styles.rewardEmoji}>⚡</Text>
-                <Text style={[styles.rewardValue, { color: Colors.xp }]}>{progress.totalXP.toLocaleString()}</Text>
+                <Text style={[styles.rewardValue, { color: colors.xp }]}>{progress.totalXP.toLocaleString()}</Text>
                 <Text style={styles.rewardLabel}>Total XP</Text>
               </View>
             </View>
@@ -251,29 +260,28 @@ export default function ResultsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  safe: { flex: 1 },
-  content: { flex: 1, padding: Theme.spacing.lg, justifyContent: 'space-between', paddingBottom: Theme.spacing.xl },
-  scoreCard: { borderRadius: Theme.radius.xl, padding: Theme.spacing.xl, alignItems: 'center', gap: Theme.spacing.sm, marginBottom: Theme.spacing.md },
-  scoreEmoji: { fontSize: 52 },
-  scoreHeading: { color: Colors.white, fontSize: Theme.font.xxl, fontWeight: Theme.weight.black, letterSpacing: -0.5 },
-  scoreNumbers: { color: 'rgba(255,255,255,0.8)', fontSize: Theme.font.lg },
-  scorePct: { color: Colors.white, fontSize: Theme.font.hero, fontWeight: Theme.weight.black, letterSpacing: -2, lineHeight: 52 },
-  starsRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  star: { fontSize: 36 },
-  starEmpty: { opacity: 0.3 },
-  rewardRow: { flexDirection: 'row', gap: Theme.spacing.sm, marginBottom: Theme.spacing.md },
-  rewardCard: { flex: 1, backgroundColor: Colors.surface, borderRadius: Theme.radius.lg, padding: Theme.spacing.md, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: Colors.border },
-  rewardEmoji: { fontSize: 20 },
-  rewardValue: { fontSize: Theme.font.xl, fontWeight: Theme.weight.black, letterSpacing: -0.5 },
-  rewardLabel: { color: Colors.textMuted, fontSize: 10, fontWeight: Theme.weight.medium, textAlign: 'center' },
-  lessonInfo: { backgroundColor: Colors.surface, borderRadius: Theme.radius.lg, padding: Theme.spacing.md, borderWidth: 1, borderColor: Colors.border, gap: 3 },
-  lessonInfoLabel: { color: Colors.textMuted, fontSize: Theme.font.xs, textTransform: 'uppercase', letterSpacing: 0.8 },
-  lessonInfoTitle: { color: Colors.text, fontSize: Theme.font.lg, fontWeight: Theme.weight.bold },
-  actions: { gap: Theme.spacing.sm, marginTop: Theme.spacing.md },
-  continueBtn: { borderRadius: Theme.radius.lg, paddingVertical: 16, alignItems: 'center' },
-  continueBtnText: { color: Colors.white, fontSize: Theme.font.lg, fontWeight: Theme.weight.bold, letterSpacing: 0.2 },
-  retryBtn: { borderRadius: Theme.radius.lg, paddingVertical: 14, alignItems: 'center', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
-  retryBtnText: { color: Colors.textSecondary, fontSize: Theme.font.md, fontWeight: Theme.weight.semibold },
-});
+function getStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    safe: { flex: 1 },
+    content: { flex: 1, padding: Theme.spacing.lg, justifyContent: 'space-between', paddingBottom: Theme.spacing.xl },
+    scoreCard: { borderRadius: Theme.radius.xl, padding: Theme.spacing.xl, alignItems: 'center', gap: Theme.spacing.sm, marginBottom: Theme.spacing.md },
+    scoreEmoji: { fontSize: 52 },
+    scoreHeading: { color: '#FFFFFF', fontSize: Theme.font.xxl, fontWeight: Theme.weight.black, letterSpacing: -0.5 },
+    scoreNumbers: { color: 'rgba(255,255,255,0.8)', fontSize: Theme.font.lg },
+    scorePct: { color: '#FFFFFF', fontSize: Theme.font.hero, fontWeight: Theme.weight.black, letterSpacing: -2, lineHeight: 52 },
+    rewardRow: { flexDirection: 'row', gap: Theme.spacing.sm, marginBottom: Theme.spacing.md },
+    rewardCard: { flex: 1, backgroundColor: colors.surface, borderRadius: Theme.radius.lg, padding: Theme.spacing.md, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: colors.border },
+    rewardEmoji: { fontSize: 20 },
+    rewardValue: { fontSize: Theme.font.xl, fontWeight: Theme.weight.black, letterSpacing: -0.5 },
+    rewardLabel: { color: colors.textMuted, fontSize: 10, fontWeight: Theme.weight.medium, textAlign: 'center' },
+    lessonInfo: { backgroundColor: colors.surface, borderRadius: Theme.radius.lg, padding: Theme.spacing.md, borderWidth: 1, borderColor: colors.border, gap: 3 },
+    lessonInfoLabel: { color: colors.textMuted, fontSize: Theme.font.xs, textTransform: 'uppercase', letterSpacing: 0.8 },
+    lessonInfoTitle: { color: colors.text, fontSize: Theme.font.lg, fontWeight: Theme.weight.bold },
+    actions: { gap: Theme.spacing.sm, marginTop: Theme.spacing.md },
+    continueBtn: { borderRadius: Theme.radius.lg, paddingVertical: 16, alignItems: 'center' },
+    continueBtnText: { color: '#FFFFFF', fontSize: Theme.font.lg, fontWeight: Theme.weight.bold, letterSpacing: 0.2 },
+    retryBtn: { borderRadius: Theme.radius.lg, paddingVertical: 14, alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+    retryBtnText: { color: colors.textSecondary, fontSize: Theme.font.md, fontWeight: Theme.weight.semibold },
+  });
+}

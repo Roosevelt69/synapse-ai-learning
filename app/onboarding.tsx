@@ -35,9 +35,8 @@ const SLIDES = [
 
 export default function Onboarding() {
   const router = useRouter();
-  const { completeOnboarding } = useProgress();
+  const { completeOnboarding, progress } = useProgress();
   const [step, setStep] = useState(0);
-  const [name, setName] = useState('');
   const [notifGranted, setNotifGranted] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -63,7 +62,7 @@ export default function Onboarding() {
 
   const handleStart = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await completeOnboarding(name.trim() || 'Learner', notifGranted);
+    await completeOnboarding(progress.name || 'Learner', notifGranted);
     router.replace('/(tabs)');
   };
 
@@ -102,20 +101,8 @@ export default function Onboarding() {
       <LinearGradient colors={[Colors.background, Colors.surface]} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.setupContent} keyboardShouldPersistTaps="handled">
-          <Text style={styles.setupTitle}>One last step</Text>
-          <Text style={styles.setupSubtitle}>Personalize your experience</Text>
-          <View style={styles.inputSection}>
-            <Text style={styles.inputLabel}>What should we call you?</Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="Your name (optional)"
-              placeholderTextColor={Colors.textMuted}
-              style={styles.input}
-              returnKeyType="done"
-              maxLength={30}
-            />
-          </View>
+          <Text style={styles.setupTitle}>Almost ready,{'\n'}{progress.name || 'Learner'} 👋</Text>
+          <Text style={styles.setupSubtitle}>One last thing to keep your streak alive</Text>
           <View style={styles.notifCard}>
             <View style={styles.notifRow}>
               <View style={styles.notifIcon}><Text style={{ fontSize: 28 }}>🔔</Text></View>
